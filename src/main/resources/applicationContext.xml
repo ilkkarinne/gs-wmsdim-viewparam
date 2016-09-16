@@ -9,6 +9,21 @@
     
 	<!-- GetMap callback -->
 	<bean id="getMapCallback" class="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer">
+		<property name="transformTime" value="true"/>
+		<property name="transformElevation" value="true"/>
+		<property name="timeZoneByOffsetMillis" value="0"/>
+		<property name="timeFormatPattern" value="yyyy-MM-dd'T'HH:mm:ss.SSSZZ" />
+		<property name="elevationFormatPattern" value="%.3f" />
+		<!--property name="layersToMatch">
+			<list>
+				<value>testLayer</value>
+			</list>
+		</property-->
+		<!--property name="customDimensionsToTransform">
+			<list>
+				<value>testdim</value>
+			</list>
+		</property-->
 	</bean>
 	
 </beans>
