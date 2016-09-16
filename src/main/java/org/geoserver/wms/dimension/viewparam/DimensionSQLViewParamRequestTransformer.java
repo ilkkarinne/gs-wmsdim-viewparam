@@ -10,6 +10,7 @@ import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
 
+import org.apache.commons.lang.StringUtils;
 import org.geoserver.platform.ServiceException;
 import org.geoserver.wms.GetMapCallbackAdapter;
 import org.geoserver.wms.GetMapRequest;
@@ -223,8 +224,9 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 					endTimes.add(getFormattedTimeValue(end));
 				}
 			}
-			retval.put(PARAM_TIME_START, String.join(",", startTimes));
-			retval.put(PARAM_TIME_END, String.join(",", endTimes));
+			//In Java 8 this can be done using String.join(delimiter,collection):
+			retval.put(PARAM_TIME_START, StringUtils.join(startTimes, ','));
+			retval.put(PARAM_TIME_END, StringUtils.join(endTimes,','));
 		}
 		return retval;
 	}
@@ -254,8 +256,9 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 					endElevations.add(getFormattedElevationValue(end));
 				}
 			}
-			retval.put(PARAM_ELEVATION_START, String.join(",", startElevations));
-			retval.put(PARAM_ELEVATION_END, String.join(",", endElevations));
+			//In Java 8 this can be done using String.join(delimiter,collection):
+			retval.put(PARAM_ELEVATION_START, StringUtils.join(startElevations,','));
+			retval.put(PARAM_ELEVATION_END, StringUtils.join(endElevations,','));
 		}
 		return retval;
 	}
@@ -268,7 +271,8 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 			}
 			retval = new HashMap<String, String>(1);
 			//Just pass the custom dim values as-is
-			retval.put("DIM_" + dimensionName, String.join(",", requestedValues));
+			//In Java 8 this can be done using String.join(delimiter,collection):
+			retval.put("DIM_" + dimensionName, StringUtils.join(requestedValues,','));
 		}
 		return retval;
 	}

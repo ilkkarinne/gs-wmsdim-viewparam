@@ -105,7 +105,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	@Test
 	public void testSingleTimeTransformation() throws Exception {
 		String timeStr = "2004-12-13T23:59:59.000Z";
-		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
+		request.setTime(Arrays.<Object>asList((new DateTime(timeStr).toDate())));
 		WebMap map = null;
 
 		try {
@@ -123,7 +123,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	public void testMultipleTimeInstancesTransformation() throws Exception {
 		String timeStr1 = "2004-12-13T23:59:59.999Z";
 		String timeStr2 = "2004-12-14T00:00:00.000Z";
-		request.setTime(Arrays.asList((new DateTime(timeStr1).toDate()),(new DateTime(timeStr2).toDate())));
+		request.setTime(Arrays.<Object>asList((new DateTime(timeStr1).toDate()),(new DateTime(timeStr2).toDate())));
 		WebMap map = null;
 		
 		try {
@@ -143,7 +143,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String timeEndStr = "2004-12-14T00:00:00.000Z";
 		
 		request.setTime(Arrays.asList(
-				new DateRange(
+				(Object)new DateRange(
 						(new DateTime(timeBeginStr)).toDate(), 
 						(new DateTime(timeEndStr)).toDate()
 				)
@@ -168,7 +168,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String timeBeginStr2 = "2004-12-31T23:59:59.999Z";
 		String timeEndStr2 = "2005-01-01T00:00:00.000Z";
 		
-		request.setTime(Arrays.asList(
+		request.setTime(Arrays.<Object>asList(
 				new DateRange(
 						(new DateTime(timeBeginStr1)).toDate(), 
 						(new DateTime(timeEndStr1)).toDate()
@@ -194,7 +194,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	@Test
 	public void testSingleElevationTransformation() throws Exception {
 		String elevStr = "1000";
-		request.setElevation(Arrays.asList(new Double(elevStr)));
+		request.setElevation(Double.valueOf(elevStr));
 		WebMap map = null;
 		String elevFormatted = String.format(transformer.getElevationFormatPattern(), Double.parseDouble(elevStr));
 		try {
@@ -212,7 +212,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	public void testMultipleElevationInstancesTransformation() throws Exception {
 		String elevStr1 = "1000";
 		String elevStr2 = "2000";
-		request.setElevation(Arrays.asList(
+		request.setElevation(Arrays.<Object>asList(
 				new Double(elevStr1),
 				new Double(elevStr2)
 		));
@@ -234,7 +234,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	public void testSingleElevationRangeTransformation() throws Exception {
 		String elevStartStr = "1000";
 		String elevEndStr = "2000";
-		request.setElevation(Arrays.asList(
+		request.setElevation(Arrays.<Object>asList(
 				new NumberRange<Double>(
 						Double.class,
 						new Double(elevStartStr),
@@ -261,7 +261,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String elevEndStr1 = "2000";
 		String elevStartStr2 = "5000";
 		String elevEndStr2 = "5500";
-		request.setElevation(Arrays.asList(
+		request.setElevation(Arrays.<Object>asList(
 				new NumberRange<Double>(
 						Double.class,
 						new Double(elevStartStr1),
@@ -414,7 +414,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String timeStr = "2004-12-13T23:59:59.999Z";
 		
 		//Should not transform if non-matching layer requested:
-		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
+		request.setTime(Arrays.<Object>asList((new DateTime(timeStr).toDate())));
 		transformer.setLayersToMatch(Arrays.asList("geos:nonExistentLayer"));
 		WebMap map = null;
 		try {
@@ -442,7 +442,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		request.setViewParams(null);
 		
 		//Should not match anything if empty layer list configured:
-		transformer.setLayersToMatch(Collections.emptyList());
+		transformer.setLayersToMatch(Collections.<String>emptyList());
 		try {
 			map = getMapOp.run(request);
 			assertViewParamNotSet(request, "timeStart");
@@ -473,7 +473,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setTransformTime(false);
 		
 		String timeStr = "2004-12-13T23:59:59.999Z";
-		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
+		request.setTime(Arrays.<Object>asList((new DateTime(timeStr).toDate())));
 		WebMap map = null;
 		
 		try {
@@ -504,7 +504,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		
 		transformer.setTransformElevation(false);
 		String elevStr = "1000";
-		request.setElevation(Arrays.asList(new Double(elevStr)));
+		request.setElevation(Arrays.<Object>asList(new Double(elevStr)));
 		WebMap map = null;
 		String elevFormatted = String.format(transformer.getElevationFormatPattern(), Double.parseDouble(elevStr));
 		try {
@@ -537,7 +537,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String format1 = "yyyy.MM.dd HH:mm:ss";
 		String format2 = "yyyy-MM-dd";
 		
-		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
+		request.setTime(Arrays.<Object>asList((new DateTime(timeStr).toDate())));
 		WebMap map = null;
 		
 		transformer.setTimeFormatPattern(format1);
@@ -571,7 +571,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String format1 = "%06.4f";
 		String format2 = "%4.2f";
 		
-		request.setElevation(Arrays.asList(new Double(elevStr)));
+		request.setElevation(Arrays.<Object>asList(new Double(elevStr)));
 		WebMap map = null;
 		
 		transformer.setElevationFormatPattern(format1);
