@@ -16,6 +16,7 @@ import org.geoserver.wms.GetMapRequest;
 import org.geoserver.wms.MapLayerInfo;
 import org.geotools.util.DateRange;
 import org.geotools.util.NumberRange;
+import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -35,6 +36,7 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 	private String elevationFormatPattern = "%.3f";
 	private CharArrayWriter elevationFormatterBuffer = new CharArrayWriter();
 	private Formatter elevationFormatter = new Formatter(elevationFormatterBuffer);
+	private DateTimeZone timeZone = DateTimeZone.UTC;
 
 	
 	public List<String> getLayersToMatch() {
@@ -68,6 +70,65 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 	public void setTransformElevation(boolean transformElevation) {
 		this.transformElevation = transformElevation;
 	}
+	
+	public DateTimeZone getTimeZone() {
+		return timeZone;
+	}
+
+	public void setTimeZone(DateTimeZone timeZone) {
+		this.timeZone = timeZone;
+	}
+	
+	public void setTimeZoneByOffsetMillis(int millisOffset) {
+		this.timeZone = DateTimeZone.forOffsetMillis(millisOffset);
+	}
+
+	public String getTimeFormatPattern() {
+		return timeFormatPattern;
+	}
+
+	/**
+	 * Set the date time formatter pattern for time view parameters.
+	 * The pattern is be parsed using {@link org.joda.time.format.DateTimeFormat#forPattern(String)}.
+	 * The default format is "yyyy-MM-dd'T'HH:mm:ss.SSSZZ"
+	 * 
+	 * @param pattern
+	 * @throws IllegalArgumentException
+	 */
+	public void setTimeFormatPattern(final String pattern)  throws IllegalArgumentException {
+		this.timeFormatter = DateTimeFormat.forPattern(pattern).withZone(this.timeZone);
+		this.timeFormatPattern = pattern;
+	}
+
+	public String getElevationFormatPattern() {
+		return elevationFormatPattern;
+	}
+
+	/**
+	 * Define formatter for elevation view parameters using printf-style format
+	 * (see {@link java.util.Formatter}). The default format is "%.3f".
+	 * 
+	 * @param pattern
+	 */
+	public void setElevationFormatPattern(final String pattern) {
+		this.elevationFormatPattern = pattern;
+		
+	}
+
+	
+	private String getFormattedElevationValue(Double elevation) throws IllegalFormatException {
+		String retval = null;
+		if (this.elevationFormatPattern != null) {
+			this.elevationFormatterBuffer.reset();
+			this.elevationFormatter.format(this.elevationFormatPattern, elevation);
+			retval = elevationFormatterBuffer.toString();
+		}
+		return retval;
+	}
+	
+	private String getFormattedTimeValue(Date dateTime) throws IllegalFormatException {
+		return this.timeFormatter.print(dateTime.getTime());
+	}
 
 	
 	
@@ -78,7 +139,11 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 		Map<String, String> dimViewParams = new HashMap<String, String>();
 		boolean shouldTransform = false;
 		int layerCount = layers.size();
-		if (this.layersToMatch != null && this.layersToMatch.size() > 0) {
+		// Logic: if layersToMatch is null (default), always transform. 
+		if (this.layersToMatch == null) {
+			shouldTransform = true;
+		// Else if it's not empty, only transform if the request contains one of these layers.
+		} else if (this.layersToMatch.size() > 0) {
 			for (int i = 0; i < layerCount; i++) {
 				final MapLayerInfo layer = layers.get(i);
 				if (this.layersToMatch.contains(layer.getName())) {
@@ -94,9 +159,15 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 			if (this.transformElevation) {
 				dimViewParams.putAll(this.getElevationsAsViewParams(request.getElevation()));
 			}
-			if (this.customDimensionsToTransform != null && this.customDimensionsToTransform.size() > 0) {
+			// Logic: if customDimensionsToTransform is null (default), include all custom dims.
+			if (this.customDimensionsToTransform == null) {
+				for (String dimensionName: getAllCustomDimensionNames(request)) {	
+					dimViewParams.putAll(this.getCustomDimensionAsViewParams(dimensionName, request.getCustomDimension(dimensionName)));
+				}
+			// Else if it's not empty, only include the matching custom dims
+			} else if (this.customDimensionsToTransform.size() > 0) {
 				for (String dimensionName:this.customDimensionsToTransform) {
-					if (this.hasCustomDimensionSet(request,dimensionName)) {
+					if (hasCustomDimensionSet(request,dimensionName)) {
 						dimViewParams.putAll(this.getCustomDimensionAsViewParams(dimensionName, request.getCustomDimension(dimensionName)));
 					}
 				}
@@ -190,12 +261,19 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 	}
 	
 	private Map<String, String> getCustomDimensionAsViewParams(String dimensionName, List<String> requestedValues) {
-		Map<String,String> retval = new HashMap<String,String>(1);
-		
+		Map<String,String> retval = null;
+		if (requestedValues != null) {
+			if (requestedValues.isEmpty()) {
+				return Collections.emptyMap();
+			}
+			retval = new HashMap<String, String>(1);
+			//Just pass the custom dim values as-is
+			retval.put("DIM_" + dimensionName, String.join(",", requestedValues));
+		}
 		return retval;
 	}
 	
-	private boolean hasCustomDimensionSet(GetMapRequest request, String dimensionName) {
+	private static boolean hasCustomDimensionSet(GetMapRequest request, String dimensionName) {
 		boolean retval = false;
 		if (request.getRawKvp() != null) {
             String key = "DIM_" + dimensionName;
@@ -207,52 +285,19 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 		return retval;
 	}
 	
-	public String getTimeFormatPattern() {
-		return timeFormatPattern;
-	}
-
-	/**
-	 * Set the date time formatter pattern for time view parameters.
-	 * The pattern is be parsed using {@link org.joda.time.format.DateTimeFormat#forPattern(String)}.
-	 * The default format is "yyyy-MM-dd'T'HH:mm:ss.SSSZZ"
-	 * 
-	 * @param pattern
-	 * @throws IllegalArgumentException
-	 */
-	public void setTimeFormatPattern(final String pattern)  throws IllegalArgumentException {
-		this.timeFormatter = DateTimeFormat.forPattern(pattern);
-		this.timeFormatPattern = pattern;
-	}
-
-	public String getElevationFormatPattern() {
-		return elevationFormatPattern;
-	}
-
-	/**
-	 * Define formatter for elevation view parameters using printf-style format
-	 * (see {@link java.util.Formatter}). The default format is "%.3f".
-	 * 
-	 * @param pattern
-	 */
-	public void setElevationFormatPattern(final String pattern) {
-		this.elevationFormatPattern = pattern;
-		
-	}
-
-	
-	private String getFormattedElevationValue(Double elevation) throws IllegalFormatException {
-		String retval = null;
-		if (this.elevationFormatPattern != null) {
-			this.elevationFormatterBuffer.reset();
-			this.elevationFormatter.format(this.elevationFormatPattern, elevation);
-			retval = elevationFormatterBuffer.toString();
+	private static List<String> getAllCustomDimensionNames(GetMapRequest request) {
+		List<String> retval = null;
+		Map<String, String> kvp = request.getRawKvp();
+		if (kvp != null) {
+			retval = new ArrayList<String>();
+			for (String name:kvp.keySet()) {
+				if (name.startsWith("DIM_")) {
+					retval.add(name.substring(4));
+				}
+			}
 		}
 		return retval;
 	}
 	
-	private String getFormattedTimeValue(Date dateTime) throws IllegalFormatException {
-		return this.timeFormatter.print(dateTime.getTime());
-	}
-
 	
 }

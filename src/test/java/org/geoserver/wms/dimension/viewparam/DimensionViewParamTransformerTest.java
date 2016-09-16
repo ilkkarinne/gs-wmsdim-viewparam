@@ -7,6 +7,7 @@ import java.awt.image.RenderedImage;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 import java.util.Map;
@@ -24,6 +25,7 @@ import org.geoserver.wms.map.RenderedImageMap;
 import org.geotools.util.DateRange;
 import org.geotools.util.NumberRange;
 import org.joda.time.DateTime;
+import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.geoserver.wms.WMSMockData.DummyRasterMapProducer;
@@ -48,9 +50,10 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setLayersToMatch(Arrays.asList("geos:layerOne"));
 	    transformer.setTransformTime(true);
 	    transformer.setTransformElevation(true);
-	    transformer.setCustomDimensionsToTransform(Arrays.asList("TESTDIM"));
+	    transformer.setCustomDimensionsToTransform(Arrays.asList("testdim"));
 	    transformer.setElevationFormatPattern("%.3f");
 	    transformer.setTimeFormatPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ");
+	    transformer.setTimeZone(DateTimeZone.UTC);
 	    
         mockData = new WMSMockData();
         mockData.setUp();
@@ -101,15 +104,14 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Test
 	public void testSingleTimeTransformation() throws Exception {
-		String timeStr = "2004-12-13T21:00:00.000Z";
+		String timeStr = "2004-12-13T23:59:59.000Z";
 		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
 		WebMap map = null;
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(transformer.getTimeFormatPattern());
-		String timeFormatted = formatter.parseDateTime(timeStr).toString(formatter);
+
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeFormatted);
-			assertViewParamSet(request, "timeEnd", timeFormatted);
+			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.000+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-13T23:59:59.000+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -119,17 +121,15 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Test
 	public void testMultipleTimeInstancesTransformation() throws Exception {
-		String timeStr1 = "2004-12-13T21:00:00.000Z";
-		String timeStr2 = "2004-12-13T22:00:00.000Z";
+		String timeStr1 = "2004-12-13T23:59:59.999Z";
+		String timeStr2 = "2004-12-14T00:00:00.000Z";
 		request.setTime(Arrays.asList((new DateTime(timeStr1).toDate()),(new DateTime(timeStr2).toDate())));
 		WebMap map = null;
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(transformer.getTimeFormatPattern());
-		String time1Formatted = formatter.parseDateTime(timeStr1).toString(formatter);
-		String time2Formatted = formatter.parseDateTime(timeStr2).toString(formatter);
+		
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", time1Formatted + "," + time2Formatted);
-			assertViewParamSet(request, "timeEnd", time1Formatted + "," + time2Formatted);
+			assertViewParamSet(request, "timeStart","2004-12-13T23:59:59.999+00:00" + "," + "2004-12-14T00:00:00.000+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-13T23:59:59.999+00:00" + "," + "2004-12-14T00:00:00.000+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -139,7 +139,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Test
 	public void testSingleTimeRangeTransformation() throws Exception {
-		String timeBeginStr = "2004-12-13T21:00:00.000Z";
+		String timeBeginStr = "2004-12-13T23:59:59.999Z";
 		String timeEndStr = "2004-12-14T00:00:00.000Z";
 		
 		request.setTime(Arrays.asList(
@@ -149,13 +149,11 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				)
 		));
 		WebMap map = null;
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(transformer.getTimeFormatPattern());
-		String timeBeginFormatted = formatter.parseDateTime(timeBeginStr).toString(formatter);
-		String timeEndFormatted = formatter.parseDateTime(timeEndStr).toString(formatter);
+		
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeBeginFormatted);
-			assertViewParamSet(request, "timeEnd", timeEndFormatted);
+			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.999+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-14T00:00:00.000+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -165,10 +163,10 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Test
 	public void testMultipleTimeRangesTransformation() throws Exception {
-		String timeBeginStr1 = "2004-12-13T21:00:00.000Z";
+		String timeBeginStr1 = "2004-12-13T23:59:59.999Z";
 		String timeEndStr1 = "2004-12-14T00:00:00.000Z";
-		String timeBeginStr2 = "2004-12-13T21:00:00.000Z";
-		String timeEndStr2 = "2004-12-14T00:00:00.000Z";
+		String timeBeginStr2 = "2004-12-31T23:59:59.999Z";
+		String timeEndStr2 = "2005-01-01T00:00:00.000Z";
 		
 		request.setTime(Arrays.asList(
 				new DateRange(
@@ -176,20 +174,16 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 						(new DateTime(timeEndStr1)).toDate()
 				),
 				new DateRange(
-						(new DateTime(timeBeginStr1)).toDate(), 
-						(new DateTime(timeEndStr1)).toDate()
+						(new DateTime(timeBeginStr2)).toDate(), 
+						(new DateTime(timeEndStr2)).toDate()
 				)
 		));
 		WebMap map = null;
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(transformer.getTimeFormatPattern());
-		String timeBegin1Formatted = formatter.parseDateTime(timeBeginStr1).toString(formatter);
-		String timeEnd1Formatted = formatter.parseDateTime(timeEndStr1).toString(formatter);
-		String timeBegin2Formatted = formatter.parseDateTime(timeBeginStr2).toString(formatter);
-		String timeEnd2Formatted = formatter.parseDateTime(timeEndStr2).toString(formatter);
+		
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeBegin1Formatted + "," + timeBegin2Formatted);
-			assertViewParamSet(request, "timeEnd", timeEnd1Formatted + "," + timeEnd2Formatted);
+			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.999+00:00" + "," + "2004-12-31T23:59:59.999+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-14T00:00:00.000+00:00" + "," + "2005-01-01T00:00:00.000+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -315,6 +309,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		String dimValue = "100,256,ABC";
 		WebMap map = null;
 		
+		// Should set testdim if dim name matches and request contains it:
 		setCustomDimensionValue(request, "testdim", dimValue);
 		transformer.setCustomDimensionsToTransform(Arrays.asList("testdim"));
 		try {
@@ -325,7 +320,9 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
+		// Should not set testdim for request does not contain it:
 		removeCustomDimension(request, "testdim");
 		try {
 			map = getMapOp.run(request);
@@ -335,7 +332,9 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
+		// Should not set testdim if dim name is not matched
 		setCustomDimensionValue(request, "testdim", dimValue);
 		transformer.setCustomDimensionsToTransform(Arrays.asList("anotherdim"));
 		try {
@@ -346,8 +345,12 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
+		//Should not set testdim, but should set anotherdim if both are given, but only anotherdim is matched:
+		setCustomDimensionValue(request, "testdim", dimValue);
 		setCustomDimensionValue(request, "anotherdim", dimValue);
+		transformer.setCustomDimensionsToTransform(Arrays.asList("anotherdim"));
 		try {
 			map = getMapOp.run(request);
 			assertViewParamNotSet(request, "DIM_testdim");
@@ -357,7 +360,11 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
+		// Should set both dimensions if given and matched:
+		setCustomDimensionValue(request, "testdim", dimValue);
+		setCustomDimensionValue(request, "anotherdim", dimValue);
 		transformer.setCustomDimensionsToTransform(Arrays.asList("testdim","anotherdim"));
 		try {
 			map = getMapOp.run(request);
@@ -368,18 +375,48 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
+		
+		//Should only set testdim if both are given and only testdim is matched:
+		setCustomDimensionValue(request, "testdim", dimValue);
+		setCustomDimensionValue(request, "anotherdim", dimValue);
+		transformer.setCustomDimensionsToTransform(Arrays.asList("testdim"));
+		try {
+			map = getMapOp.run(request);
+			assertViewParamSet(request, "DIM_testdim", dimValue);
+			assertViewParamNotSet(request, "DIM_anotherdim");
+		} finally {
+			if (map != null) {
+				map.dispose();
+			}
+		}
+		request.setViewParams(null);
+		
+		//Should set both dims of matched dims list is set to null:
+		setCustomDimensionValue(request, "testdim", dimValue);
+		setCustomDimensionValue(request, "anotherdim", dimValue);
+		transformer.setCustomDimensionsToTransform(null);
+		try {
+			map = getMapOp.run(request);
+			assertViewParamSet(request, "DIM_testdim", dimValue);
+			assertViewParamSet(request, "DIM_anotherdim", dimValue);
+		} finally {
+			if (map != null) {
+				map.dispose();
+			}
+		}
+
 	}
 	
 	
 	@Test
 	public void testLayerMatching() throws Exception {
-		transformer.setLayersToMatch(Arrays.asList("geos:nonExistentLayer"));
+		String timeStr = "2004-12-13T23:59:59.999Z";
 		
-		String timeStr = "2004-12-13T21:00:00.000Z";
+		//Should not transform if non-matching layer requested:
 		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
+		transformer.setLayersToMatch(Arrays.asList("geos:nonExistentLayer"));
 		WebMap map = null;
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(transformer.getTimeFormatPattern());
-		String timeFormatted = formatter.parseDateTime(timeStr).toString(formatter);
 		try {
 			map = getMapOp.run(request);
 			assertViewParamNotSet(request, "timeStart");
@@ -390,22 +427,39 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 			}
 		}
 		request.setViewParams(null);
+		
+		//Should transform if matching layer requested:
 		transformer.setLayersToMatch(Arrays.asList("geos:layerOne"));
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeFormatted);
-			assertViewParamSet(request, "timeEnd", timeFormatted);
+			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.999+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-13T23:59:59.999+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
 			}
 		}
 		request.setViewParams(null);
-		transformer.setLayersToMatch(null);
+		
+		//Should not match anything if empty layer list configured:
+		transformer.setLayersToMatch(Collections.emptyList());
 		try {
 			map = getMapOp.run(request);
 			assertViewParamNotSet(request, "timeStart");
 			assertViewParamNotSet(request, "timeEnd");
+		} finally {
+			if (map != null) {
+				map.dispose();
+			}
+		}
+		request.setViewParams(null);
+		
+		//Should match anything of a null layer list configured:
+		transformer.setLayersToMatch(null);
+		try {
+			map = getMapOp.run(request);
+			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.999+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-13T23:59:59.999+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -418,11 +472,10 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	public void testEnableTime() throws Exception {
 		transformer.setTransformTime(false);
 		
-		String timeStr = "2004-12-13T21:00:00.000Z";
+		String timeStr = "2004-12-13T23:59:59.999Z";
 		request.setTime(Arrays.asList((new DateTime(timeStr).toDate())));
 		WebMap map = null;
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(transformer.getTimeFormatPattern());
-		String timeFormatted = formatter.parseDateTime(timeStr).toString(formatter);
+		
 		try {
 			map = getMapOp.run(request);
 			assertViewParamNotSet(request, "timeStart");
@@ -432,12 +485,13 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
 		transformer.setTransformTime(true);
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeFormatted);
-			assertViewParamSet(request, "timeEnd", timeFormatted);
+			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.999+00:00");
+			assertViewParamSet(request, "timeEnd", "2004-12-13T23:59:59.999+00:00");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -462,6 +516,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
 		transformer.setTransformElevation(true);
 		try {
@@ -478,8 +533,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Test
 	public void testTimeFormatting() throws Exception {
-		String timeStr = "2004-12-13T21:00:00.000Z";
-		String formatISO = "yyyy-MM-dd'T'HH:mm:ss.SSSZZ";
+		String timeStr = "2004-12-13T23:59:59.000Z";
 		String format1 = "yyyy.MM.dd HH:mm:ss";
 		String format2 = "yyyy-MM-dd";
 		
@@ -487,26 +541,22 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		WebMap map = null;
 		
 		transformer.setTimeFormatPattern(format1);
-		DateTimeFormatter formatterISO = DateTimeFormat.forPattern(formatISO);
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(format1);
-		String timeFormatted = formatterISO.parseDateTime(timeStr).toString(formatter);
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeFormatted);
-			assertViewParamSet(request, "timeEnd", timeFormatted);
+			assertViewParamSet(request, "timeStart", "2004.12.13 23:59:59");
+			assertViewParamSet(request, "timeEnd", "2004.12.13 23:59:59");
 		} finally {
 			if (map != null) {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
 		transformer.setTimeFormatPattern(format2);
-		formatter = DateTimeFormat.forPattern(format2);
-		timeFormatted = formatterISO.parseDateTime(timeStr).toString(formatter);
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "timeStart", timeFormatted);
-			assertViewParamSet(request, "timeEnd", timeFormatted);
+			assertViewParamSet(request, "timeStart", "2004-12-13");
+			assertViewParamSet(request, "timeEnd", "2004-12-13");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -535,6 +585,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 				map.dispose();
 			}
 		}
+		request.setViewParams(null);
 		
 		transformer.setElevationFormatPattern(format2);
 		elevFormatted = String.format(format2, Double.parseDouble(elevStr));
