@@ -21,13 +21,13 @@ import org.geoserver.wms.WMSMapContent;
 import org.geoserver.wms.WMSMockData;
 import org.geoserver.wms.WMSTestSupport;
 import org.geoserver.wms.WebMap;
+import org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.DimensionName;
+import org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.RangeLimitType;
 import org.geoserver.wms.map.RenderedImageMap;
 import org.geotools.util.DateRange;
 import org.geotools.util.NumberRange;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 import org.geoserver.wms.WMSMockData.DummyRasterMapProducer;
 import org.junit.Before;
 import org.junit.Test;
@@ -48,12 +48,16 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
     public void setUp() throws Exception {
         transformer = applicationContext.getBean("getMapCallback", org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.class);
 		transformer.setLayersToMatch(Arrays.asList("geos:layerOne"));
-	    transformer.setTransformTime(true);
-	    transformer.setTransformElevation(true);
+	    transformer.setTransformTimeEnabled(true);
+	    transformer.setTransformElevationEnabled(true);
 	    transformer.setCustomDimensionsToTransform(Arrays.asList("testdim"));
 	    transformer.setElevationFormatPattern("%.3f");
 	    transformer.setTimeFormatPattern("yyyy-MM-dd'T'HH:mm:ss.SSSZZ");
 	    transformer.setTimeZone(DateTimeZone.UTC);
+	    transformer.setViewParameterName(DimensionName.TIME, RangeLimitType.START, "timeStart");
+	    transformer.setViewParameterName(DimensionName.TIME, RangeLimitType.END, "timeEnd");
+	    transformer.setViewParameterName(DimensionName.ELEVATION, RangeLimitType.START, "elevationStart");
+	    transformer.setViewParameterName(DimensionName.ELEVATION, RangeLimitType.END, "elevationEnd");
 	    
         mockData = new WMSMockData();
         mockData.setUp();
@@ -292,11 +296,12 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	@Test
 	public void testCustomDimensionTransformation() throws Exception {
 		String dimValue = "100,256,ABC";
+		this.transformer.setCustomDimensionViewParameterName("testdim", "dimtest");
 		setCustomDimensionValue(request, "testdim", dimValue);
 		WebMap map = null;
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "DIM_testdim", dimValue);
+			assertViewParamSet(request, "DIM_dimtest", dimValue);
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -308,13 +313,15 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	public void testCustomDimensionMatching() throws Exception {
 		String dimValue = "100,256,ABC";
 		WebMap map = null;
+		this.transformer.setCustomDimensionViewParameterName("testdim", "dimtest");
+		this.transformer.setCustomDimensionViewParameterName("anotherdim", "dimtest2");
 		
 		// Should set testdim if dim name matches and request contains it:
 		setCustomDimensionValue(request, "testdim", dimValue);
 		transformer.setCustomDimensionsToTransform(Arrays.asList("testdim"));
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "DIM_testdim", dimValue);
+			assertViewParamSet(request, "DIM_dimtest", dimValue);
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -326,7 +333,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		removeCustomDimension(request, "testdim");
 		try {
 			map = getMapOp.run(request);
-			assertViewParamNotSet(request, "DIM_testdim");
+			assertViewParamNotSet(request, "DIM_dimtest");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -339,7 +346,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setCustomDimensionsToTransform(Arrays.asList("anotherdim"));
 		try {
 			map = getMapOp.run(request);
-			assertViewParamNotSet(request, "DIM_testdim");
+			assertViewParamNotSet(request, "DIM_dimtest");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -353,8 +360,8 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setCustomDimensionsToTransform(Arrays.asList("anotherdim"));
 		try {
 			map = getMapOp.run(request);
-			assertViewParamNotSet(request, "DIM_testdim");
-			assertViewParamSet(request, "DIM_anotherdim", dimValue);
+			assertViewParamNotSet(request, "DIM_dimtest");
+			assertViewParamSet(request, "DIM_dimtest2", dimValue);
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -368,8 +375,8 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setCustomDimensionsToTransform(Arrays.asList("testdim","anotherdim"));
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "DIM_testdim", dimValue);
-			assertViewParamSet(request, "DIM_anotherdim", dimValue);
+			assertViewParamSet(request, "DIM_dimtest", dimValue);
+			assertViewParamSet(request, "DIM_dimtest2", dimValue);
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -383,8 +390,8 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setCustomDimensionsToTransform(Arrays.asList("testdim"));
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "DIM_testdim", dimValue);
-			assertViewParamNotSet(request, "DIM_anotherdim");
+			assertViewParamSet(request, "DIM_dimtest", dimValue);
+			assertViewParamNotSet(request, "DIM_dimtest2");
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -398,8 +405,8 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		transformer.setCustomDimensionsToTransform(null);
 		try {
 			map = getMapOp.run(request);
-			assertViewParamSet(request, "DIM_testdim", dimValue);
-			assertViewParamSet(request, "DIM_anotherdim", dimValue);
+			assertViewParamSet(request, "DIM_dimtest", dimValue);
+			assertViewParamSet(request, "DIM_dimtest2", dimValue);
 		} finally {
 			if (map != null) {
 				map.dispose();
@@ -470,7 +477,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Test
 	public void testEnableTime() throws Exception {
-		transformer.setTransformTime(false);
+		transformer.setTransformTimeEnabled(false);
 		
 		String timeStr = "2004-12-13T23:59:59.999Z";
 		request.setTime(Arrays.<Object>asList((new DateTime(timeStr).toDate())));
@@ -487,7 +494,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		}
 		request.setViewParams(null);
 		
-		transformer.setTransformTime(true);
+		transformer.setTransformTimeEnabled(true);
 		try {
 			map = getMapOp.run(request);
 			assertViewParamSet(request, "timeStart", "2004-12-13T23:59:59.999+00:00");
@@ -502,7 +509,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	@Test
 	public void testEnableElevation() throws Exception {
 		
-		transformer.setTransformElevation(false);
+		transformer.setTransformElevationEnabled(false);
 		String elevStr = "1000";
 		request.setElevation(Arrays.<Object>asList(new Double(elevStr)));
 		WebMap map = null;
@@ -518,7 +525,7 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		}
 		request.setViewParams(null);
 		
-		transformer.setTransformElevation(true);
+		transformer.setTransformElevationEnabled(true);
 		try {
 			map = getMapOp.run(request);
 			assertViewParamSet(request, "elevationStart", elevFormatted);
@@ -599,6 +606,8 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 			}
 		}
 	}
+	
+	//TODO: tests for view param name customization
 	
 	
 	

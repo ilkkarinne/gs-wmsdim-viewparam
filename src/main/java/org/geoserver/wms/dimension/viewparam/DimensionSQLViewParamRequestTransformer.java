@@ -23,67 +23,191 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapter {
-	public static final String PARAM_TIME_START = "timeStart";
-	public static final String PARAM_TIME_END = "timeEnd";
-	public static final String PARAM_ELEVATION_START = "elevationStart";
-	public static final String PARAM_ELEVATION_END = "elevationEnd";
+	public enum DimensionName {TIME, ELEVATION}
+	public enum RangeLimitType {START, END}
 	
-	private List<String> layersToMatch = null;
-	private List<String> customDimensionsToTransform = null;
-	private boolean transformTime = true;
-	private boolean transformElevation = true;
-	private String timeFormatPattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZZ";
-	private DateTimeFormatter timeFormatter = ISODateTimeFormat.dateTime();
-	private String elevationFormatPattern = "%.3f";
-	private CharArrayWriter elevationFormatterBuffer = new CharArrayWriter();
-	private Formatter elevationFormatter = new Formatter(elevationFormatterBuffer);
-	private DateTimeZone timeZone = DateTimeZone.UTC;
+	private Map<DimensionName,Map<RangeLimitType, String>> viewParameterNames;
+	private Map<String, String> customDimensionParameterNames;
+	private List<String> layersToMatch;
+	private List<String> customDimensionsToTransform;
+	private boolean transformTime;
+	private boolean transformElevation;
+	private String timeFormatPattern;
+	private DateTimeFormatter timeFormatter;
+	private String elevationFormatPattern;
+	private CharArrayWriter elevationFormatterBuffer;
+	private Formatter elevationFormatter;
+	private DateTimeZone timeZone;
 
+	public DimensionSQLViewParamRequestTransformer() {
+		this.viewParameterNames = new HashMap<DimensionName,Map<RangeLimitType,String>>(2);
+		this.customDimensionParameterNames = new HashMap<String, String>();
+		Map<RangeLimitType, String> forDim = new HashMap<RangeLimitType, String>(2);
+		forDim.put(RangeLimitType.START, "timeStart");
+		forDim.put(RangeLimitType.END, "timeEnd");
+		this.viewParameterNames.put(DimensionName.TIME, forDim);
+		forDim = new HashMap<RangeLimitType, String>(2);
+		forDim.put(RangeLimitType.START, "elevationStart");
+		forDim.put(RangeLimitType.END, "elevationEnd");
+		this.viewParameterNames.put(DimensionName.ELEVATION, forDim);
+		
+		this.layersToMatch = null;
+		this.customDimensionsToTransform = null;
+		this.transformTime = true;
+		this.transformElevation = true;
+		this.timeFormatPattern = "yyyy-MM-dd'T'HH:mm:ss.SSSZZ";
+		this.timeFormatter = ISODateTimeFormat.dateTime();
+		this.elevationFormatPattern = "%.3f";
+		this.elevationFormatterBuffer = new CharArrayWriter();
+		this.elevationFormatter = new Formatter(elevationFormatterBuffer);
+		this.timeZone = DateTimeZone.UTC;
+	}
 	
+	/**
+	 * Get the names of the layers in a GetMap request triggering
+	 * dimension parameters to be copied as SQL View Parameters.
+	 * 
+	 * @return list of layer names to include, or null if any layer is matched. 
+	 */
 	public List<String> getLayersToMatch() {
 		return layersToMatch;
 	}
 
+	/**
+	 * Set the names of the layers in a GetMap request triggering
+	 * dimension parameters to be copied as SQL View Parameters.
+	 * If set to null (default) dimension parameter copying is
+	 * enabled for any GetMap request regardless of the 
+	 * requested layer name(s).
+	 * 
+	 * @param layersToMatch
+	 */
 	public void setLayersToMatch(List<String> layersToMatch) {
 		this.layersToMatch = layersToMatch;
 	}
 
+	/**
+	 * Add a new layer to be included as a triggering condition
+	 * for transforming the GetMap dimension request parameters into
+	 * SLQ View Parameters.
+	 * 
+	 * @param layerName
+	 * @return
+	 */
+	public boolean addlayerToMatch(String layerName) {
+		if (this.layersToMatch == null) {
+			this.layersToMatch = new ArrayList<String>();
+		}
+		return this.layersToMatch.add(layerName);
+	}
+	
+	/**
+	 * Get names of the custom dimensions to transform.
+	 * 
+	 * @return list of custom dimension names to include, or null any custom dimension (DIM_ prefix) is transformed. 
+	 */
 	public List<String> getCustomDimensionsToTransform() {
 		return customDimensionsToTransform;
 	}
 
+	/**
+	 * Set names of the custom dimensions to transform.
+	 * If set to null (default) all custom dimensions included
+	 * in the GetMap requests are transformed into the corresponding view parameters.
+	 * 
+	 * @param customDimensionsToTransform
+	 */
 	public void setCustomDimensionsToTransform(List<String> customDimensionsToTransform) {
 		this.customDimensionsToTransform = customDimensionsToTransform;
 	}
 
-	public boolean transformTime() {
+	/**
+	 * Is the TIME parameter transformation enabled for any requests?
+	 * 
+	 * @return true if enabled
+	 */
+	public boolean isTransformTimeEnabled() {
 		return transformTime;
 	}
 
-	public void setTransformTime(boolean transformTime) {
+	/**
+	 * Enable or disable TIME parameter transformation.
+	 * Enabled by default.
+	 * 
+	 * @param transformTime set true to enable
+	 */
+	public void setTransformTimeEnabled(boolean transformTime) {
 		this.transformTime = transformTime;
 	}
 
-	public boolean transformElevation() {
+	/**
+	 * Is the ELEVATION parameter transformation enabled for any requests?
+	 * 
+	 * @return true if enabled
+	 */
+	public boolean isTransformElevationEnabled() {
 		return transformElevation;
 	}
 
-	public void setTransformElevation(boolean transformElevation) {
+	/**
+	 * Enable or disable ELEVATION parameter transformation.
+	 * Enabled by default.
+	 * 
+	 * @param transformElevation set true to enable
+	 */
+	public void setTransformElevationEnabled(boolean transformElevation) {
 		this.transformElevation = transformElevation;
 	}
 	
+	/**
+	 * Returns the time zone used for encoding the time dimension values
+	 * as SQL View parameters.
+	 * 
+	 * @return
+	 */
 	public DateTimeZone getTimeZone() {
 		return timeZone;
 	}
 
+	/**
+	 * Set the time zone used for encoding the time dimension values
+	 * as SQL View parameters.
+	 * 
+	 * @param timeZone
+	 */
 	public void setTimeZone(DateTimeZone timeZone) {
 		this.timeZone = timeZone;
 	}
 	
+	/**
+	 * Set the time zone offset used for encoding the time dimension values
+	 * as SQL View parameters.
+	 * 
+	 * @param millisOffset
+	 */
 	public void setTimeZoneByOffsetMillis(int millisOffset) {
 		this.timeZone = DateTimeZone.forOffsetMillis(millisOffset);
 	}
+	
+	/**
+	 * Set the time zone used for encoding the time dimension values
+	 * as SQL View parameters using a time zone id. Accepts the long
+	 * format time zone ids as returned by 
+	 * {@link DateTimeZone#getAvailableIDs()}
+	 * 
+	 * @param millisOffset
+	 */
+	public void setTimeZoneById(String longTimeZoneId) {
+		this.timeZone = DateTimeZone.forID(longTimeZoneId);
+	}
 
+	/**
+	 * Returns the current pattern for formatting time valued
+	 * SQL View Parameters.
+	 *
+	 * @return the format
+	 * @see org.joda.time.format.DateTimeFormat
+	 */
 	public String getTimeFormatPattern() {
 		return timeFormatPattern;
 	}
@@ -101,6 +225,12 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 		this.timeFormatPattern = pattern;
 	}
 
+	/**
+	 * Returns the current pattern for formatting elevation valued
+	 * SQL View Parameters.
+	 * 
+	 * @return 
+	 */
 	public String getElevationFormatPattern() {
 		return elevationFormatPattern;
 	}
@@ -116,21 +246,32 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 		
 	}
 
-	
-	private String getFormattedElevationValue(Double elevation) throws IllegalFormatException {
-		String retval = null;
-		if (this.elevationFormatPattern != null) {
-			this.elevationFormatterBuffer.reset();
-			this.elevationFormatter.format(this.elevationFormatPattern, elevation);
-			retval = elevationFormatterBuffer.toString();
+	public void setViewParameterName(DimensionName dimension, RangeLimitType type, String paramName) {
+		if (!this.viewParameterNames.containsKey(dimension)){
+			this.viewParameterNames.put(dimension, new HashMap<RangeLimitType, String>());
 		}
-		return retval;
+		this.viewParameterNames.get(dimension).put(type, paramName);
 	}
 	
-	private String getFormattedTimeValue(Date dateTime) throws IllegalFormatException {
-		return this.timeFormatter.print(dateTime.getTime());
+	public String getViewParameterName(DimensionName dimension, RangeLimitType type) {
+		if (this.viewParameterNames.containsKey(dimension)) {
+			return this.viewParameterNames.get(dimension).get(type);
+		} else {
+			return null;
+		}
 	}
-
+	
+	public void setCustomDimensionViewParameterName(String customDimensionName, String viewParameterName) {
+		this.customDimensionParameterNames.put(customDimensionName, viewParameterName);
+	}
+	
+	public String getCustomDimensionViewParameterName(String dimensionName) {
+		if (this.customDimensionParameterNames.containsKey(dimensionName)) {
+			return this.customDimensionParameterNames.get(dimensionName);
+		} else {
+			return dimensionName;
+		}
+	}
 	
 	
 	@Override
@@ -199,6 +340,22 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 
 	}
 	
+
+	private String getFormattedElevationValue(Double elevation) throws IllegalFormatException {
+		String retval = null;
+		if (this.elevationFormatPattern != null) {
+			this.elevationFormatterBuffer.reset();
+			this.elevationFormatter.format(this.elevationFormatPattern, elevation);
+			retval = elevationFormatterBuffer.toString();
+		}
+		return retval;
+	}
+	
+	private String getFormattedTimeValue(Date dateTime) throws IllegalFormatException {
+		return this.timeFormatter.print(dateTime.getTime());
+	}
+
+
 	private Map<String, String> getTimesAsViewParams(List<Object> requestedTimes) {
 		Map<String,String> retval = null;
 		List<String> startTimes;
@@ -224,9 +381,19 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 					endTimes.add(getFormattedTimeValue(end));
 				}
 			}
-			//In Java 8 this can be done using String.join(delimiter,collection):
-			retval.put(PARAM_TIME_START, StringUtils.join(startTimes, ','));
-			retval.put(PARAM_TIME_END, StringUtils.join(endTimes,','));
+			
+			if (this.viewParameterNames.containsKey(DimensionName.TIME)) {
+				String startParam = this.getViewParameterName(DimensionName.TIME, RangeLimitType.START);
+				String endParam = this.getViewParameterName(DimensionName.TIME, RangeLimitType.END);
+				
+				//In Java 8 this can be done using String.join(delimiter,collection):
+				if (startParam != null) {
+					retval.put(startParam, StringUtils.join(startTimes, ','));
+				}
+				if (endParam != null) {
+					retval.put(endParam, StringUtils.join(endTimes,','));
+				}
+			}
 		}
 		return retval;
 	}
@@ -256,9 +423,18 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 					endElevations.add(getFormattedElevationValue(end));
 				}
 			}
-			//In Java 8 this can be done using String.join(delimiter,collection):
-			retval.put(PARAM_ELEVATION_START, StringUtils.join(startElevations,','));
-			retval.put(PARAM_ELEVATION_END, StringUtils.join(endElevations,','));
+			if (this.viewParameterNames.containsKey(DimensionName.ELEVATION)) {
+				String startParam = this.getViewParameterName(DimensionName.ELEVATION, RangeLimitType.START);
+				String endParam = this.getViewParameterName(DimensionName.ELEVATION, RangeLimitType.END);
+				
+				//In Java 8 this can be done using String.join(delimiter,collection):
+				if (startParam != null) {
+					retval.put(startParam, StringUtils.join(startElevations,','));
+				}
+				if (endParam != null) {
+					retval.put(endParam, StringUtils.join(endElevations,','));
+				}
+			}
 		}
 		return retval;
 	}
@@ -270,9 +446,9 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 				return Collections.emptyMap();
 			}
 			retval = new HashMap<String, String>(1);
-			//Just pass the custom dim values as-is
+			String viewParamName = this.getCustomDimensionViewParameterName(dimensionName);
 			//In Java 8 this can be done using String.join(delimiter,collection):
-			retval.put("DIM_" + dimensionName, StringUtils.join(requestedValues,','));
+			retval.put("DIM_" + viewParamName, StringUtils.join(requestedValues,','));
 		}
 		return retval;
 	}
