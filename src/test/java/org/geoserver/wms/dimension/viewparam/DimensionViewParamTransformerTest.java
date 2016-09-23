@@ -11,6 +11,7 @@ import java.util.Collections;
 import java.util.List;
 
 import java.util.Map;
+import java.util.logging.Level;
 
 import org.geoserver.platform.ServiceException;
 import org.geoserver.wms.GetMap;
@@ -46,7 +47,9 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 	
 	@Before
     public void setUp() throws Exception {
-        transformer = applicationContext.getBean("getMapCallback", org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.class);
+		//org.geotools.util.logging.Logging.getLogger(DimensionSQLViewParamRequestTransformer.class.getName()).setLevel(Level.FINEST);
+        
+		transformer = applicationContext.getBean("getMapCallback", org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.class);
 		transformer.setLayersToMatch(Arrays.asList("geos:layerOne"));
 	    transformer.setTransformTimeEnabled(true);
 	    transformer.setTransformElevationEnabled(true);
@@ -607,9 +610,47 @@ public class DimensionViewParamTransformerTest extends WMSTestSupport {
 		}
 	}
 	
-	//TODO: tests for view param name customization
+	@Test
+	public void testTimeParameterCustomNames() throws Exception {
+		String timeStr = "2004-12-13T23:59:59.000Z";
+		request.setTime(Arrays.<Object>asList((new DateTime(timeStr).toDate())));
+		WebMap map = null;
+
+		transformer.setViewParameterName(DimensionName.TIME, RangeLimitType.START, "someRandomName");
+		transformer.setViewParameterName(DimensionName.TIME, RangeLimitType.END, "someOtherRandomName");
+		
+		try {
+			map = getMapOp.run(request);
+			assertViewParamSet(request, "someRandomName", "2004-12-13T23:59:59.000+00:00");
+			assertViewParamSet(request, "someOtherRandomName", "2004-12-13T23:59:59.000+00:00");
+		} finally {
+			if (map != null) {
+				map.dispose();
+			}
+		}
+	}
 	
-	
+	@Test
+	public void testElevationParameterCustomNames() throws Exception {
+		String elevStr = "1000";
+		request.setElevation(Double.valueOf(elevStr));
+		WebMap map = null;
+		String elevFormatted = String.format(transformer.getElevationFormatPattern(), Double.parseDouble(elevStr));
+		
+		transformer.setViewParameterName(DimensionName.ELEVATION, RangeLimitType.START, "someRandomName");
+		transformer.setViewParameterName(DimensionName.ELEVATION, RangeLimitType.END, "someOtherRandomName");
+		
+		try {
+			map = getMapOp.run(request);
+			assertViewParamSet(request, "someRandomName", elevFormatted);
+			assertViewParamSet(request, "someOtherRandomName", elevFormatted);
+		} finally {
+			if (map != null) {
+				map.dispose();
+			}
+		}
+	}
+
 	
 	static void assertViewParamSet(GetMapRequest req, String name, String expected) {
 		boolean found = false;
