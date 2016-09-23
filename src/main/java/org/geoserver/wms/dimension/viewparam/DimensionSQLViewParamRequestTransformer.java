@@ -9,6 +9,8 @@ import java.util.HashMap;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import org.apache.commons.lang.StringUtils;
 import org.geoserver.platform.ServiceException;
@@ -23,6 +25,9 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
 public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapter {
+	
+	private static final Logger log = org.geotools.util.logging.Logging.getLogger(DimensionSQLViewParamRequestTransformer.class.getName());
+	
 	public enum DimensionName {TIME, ELEVATION}
 	public enum RangeLimitType {START, END}
 	
@@ -284,25 +289,30 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 		// Logic: if layersToMatch is null (default), always transform. 
 		if (this.layersToMatch == null) {
 			shouldTransform = true;
+			log.log(Level.FINE, "Null layers to match, transform dims for any GetMap request");
 		// Else if it's not empty, only transform if the request contains one of these layers.
 		} else if (this.layersToMatch.size() > 0) {
 			for (int i = 0; i < layerCount; i++) {
 				final MapLayerInfo layer = layers.get(i);
 				if (this.layersToMatch.contains(layer.getName())) {
 					shouldTransform = true;
+					log.log(Level.FINE, "Found triggering layer '" + layer.getName() +"' in GetMap request, enabling dim transformation");
 					break;
 				}
 			}
 		}
 		if (shouldTransform) {
 			if (this.transformTime) {
+				log.log(Level.FINEST, "Time dimension transformation enabled");
 				dimViewParams.putAll(this.getTimesAsViewParams(request.getTime()));
 			}
 			if (this.transformElevation) {
+				log.log(Level.FINEST, "Elevation dimension transformation enabled");
 				dimViewParams.putAll(this.getElevationsAsViewParams(request.getElevation()));
 			}
 			// Logic: if customDimensionsToTransform is null (default), include all custom dims.
 			if (this.customDimensionsToTransform == null) {
+				log.log(Level.FINEST, "Null custom dims to match given, transforming any custom dimension");
 				for (String dimensionName: getAllCustomDimensionNames(request)) {	
 					dimViewParams.putAll(this.getCustomDimensionAsViewParams(dimensionName, request.getCustomDimension(dimensionName)));
 				}
@@ -310,7 +320,10 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 			} else if (this.customDimensionsToTransform.size() > 0) {
 				for (String dimensionName:this.customDimensionsToTransform) {
 					if (hasCustomDimensionSet(request,dimensionName)) {
+						log.log(Level.FINE, "Found matching custom dimension '" + dimensionName + "', transforming");
 						dimViewParams.putAll(this.getCustomDimensionAsViewParams(dimensionName, request.getCustomDimension(dimensionName)));
+					} else {
+						log.log(Level.FINEST, "Skipping transformation for custom dimension '" + dimensionName + "'");
 					}
 				}
 			}
@@ -334,7 +347,13 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 	                throw new ServiceException(msg, getClass().getName());
 				}
 				request.setViewParams(viewParams);
+				if (log.isLoggable(Level.FINE)) {
+					logViewParams(request, viewParams);
+				}
+				
 			}
+		} else {
+			log.log(Level.FINEST, "Not transforming dimension parameters");
 		}
 		return super.initRequest(request);
 
@@ -477,6 +496,27 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
 			}
 		}
 		return retval;
+	}
+	
+	private static void logViewParams(GetMapRequest req, List<Map<String, String>> params) {
+		if (params != null) {
+			List<MapLayerInfo> layers = req.getLayers();
+			if (layers != null) {
+				if (layers.size() != params.size()) {
+					log.severe("Mismatch between layer list and viewparam list sizes!");
+					return;
+				}
+				Map<String, String> layerParams;
+				log.log(Level.FINE, "SQL View Parameters by layer after dimension transformation follow");
+				for (int i=0; i < layers.size(); i++) {
+					layerParams = params.get(i);
+					log.log(Level.FINE, layers.get(i).getName());
+					for (String name:layerParams.keySet()) {
+						log.log(Level.FINE, "\t" + name + "=" + layerParams.get(name));
+					}
+				}
+			}
+		}
 	}
 	
 	
