@@ -41,42 +41,80 @@ At the moment, there is no configuration settings in the Geoserver Web administr
 
 If you need to change the defaults, you can do so be configuring the transformer bean's Spring application context in `src/main/resources/applicationContext.xml`:
 
-    <?xml version="1.0" encoding="UTF-8"?>
-    <!-- Copyright (c) 2013 OpenPlans - www.openplans.org. All rights reserved. 
-    This code is licensed under the GPL 2.0 license, available at the root application 
-    directory. -->
-    <!DOCTYPE beans PUBLIC "-//SPRING//DTD BEAN//EN" "http://www.springframework.org/dtd/spring-beans.dtd">
-    <beans>
-      <!-- GetMap callback -->
-      <bean id="getMapCallback"
-        class="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer">
-        <property name="transformTimeEnabled" value="true" />
-        <property name="transformElevationEnabled" value="false" />
-        <property name="overrideExistingViewParams" value="true" />
-        <property name="timeZoneById" value="EEST" />
-        <property name="timeFormatPattern" value="yyyy-MM-dd" />
-        <property name="elevationFormatPattern" value="%.5f" />
-    
-        <property name="resourceNamesToMatch">
-          <list>
-            <bean class="org.geotools.feature.NameImpl">
-              <constructor-arg value="http://add.full.layer.namespace.here" />
-              <constructor-arg value="layerLocalName1" />
-            </bean>
-            <bean class="org.geotools.feature.NameImpl">
-              <constructor-arg value="http://add.full.layer.namespace.here" />
-              <constructor-arg value="layerLocalName2" />
-            </bean>
-          </list>
-        </property>
-    
-        <property name="customDimensionsToTransform">
-          <list>
-            <value>testdim</value>
-          </list>
-        </property>
-      </bean>
-    </beans>
+	<?xml version="1.0" encoding="UTF-8"?>
+	<!-- Copyright (c) 2013 OpenPlans - www.openplans.org. All rights reserved. 
+	  This code is licensed under the GPL 2.0 license, available at the root application 
+	  directory. -->
+	<beans xmlns="http://www.springframework.org/schema/beans"
+	  xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:util="http://www.springframework.org/schema/util"
+	  xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.0.xsd
+			http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.0.xsd">
+	
+	  <util:constant id="timeDim"
+	    static-field="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.DimensionName.TIME" />
+	  <util:constant id="elevationDim"
+	    static-field="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.DimensionName.ELEVATION" />
+	  <util:constant id="rangeStart"
+	    static-field="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.RangeLimitType.START" />
+	  <util:constant id="rangeEnd"
+	    static-field="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer.RangeLimitType.END" />
+	
+	  <!-- GetMap callback -->
+	  <bean id="getMapCallback"
+	    class="org.geoserver.wms.dimension.viewparam.DimensionSQLViewParamRequestTransformer">
+	    
+	    <property name="transformTimeEnabled" value="true" />
+	    <property name="transformElevationEnabled" value="false" />
+	    <property name="overrideExistingViewParams" value="true" />
+	    <property name="timeZoneById" value="Europe/Helsinki" />
+	    <property name="timeFormatPattern" value="yyyy-MM-dd" />
+	    <property name="elevationFormatPattern" value="%.5f" />
+	    
+	    <property name="resourceNamesToMatch">
+	      <list>
+	        <bean class="org.geotools.feature.NameImpl">
+	          <constructor-arg value="http://add.full.layer.namespace.here" />
+	          <constructor-arg value="layerLocalName1" />
+	        </bean>
+	        <bean class="org.geotools.feature.NameImpl">
+	          <constructor-arg value="http://add.full.layer.namespace.here" />
+	          <constructor-arg value="layerLocalName2" />
+	        </bean>
+	      </list>
+	    </property>
+	    
+	    <property name="customDimensionsToTransform">
+	      <list>
+	        <value>testdim</value>
+	      </list>
+	    </property>
+	    
+	    <property name="viewParameterNames">
+	      <map>
+	        <entry key-ref="timeDim">
+	          <map>
+	            <entry key-ref="rangeStart" value="yourTimeStartParam" />
+	            <entry key-ref="rangeEnd" value="yourTimeEndParam" />
+	          </map>
+	        </entry>
+	        <entry key-ref="elevationDim">
+	          <map>
+	            <entry key-ref="rangeStart" value="yourElevStartParam" />
+	            <entry key-ref="rangeEnd" value="yourElevEndParam" />
+	          </map>
+	        </entry>
+	      </map>
+	    </property>
+	
+	    <property name="customDimensionParameterNames">
+	      <map>
+	        <entry key="testDim" value="myTestDim" />
+	        <entry key="testDim2" value="myTestDim2" />
+	      </map>
+	    </property>
+	
+	  </bean>
+	</beans>
 
 
 ## Building and installation
