@@ -246,7 +246,15 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
         this.elevationFormatPattern = pattern;
 
     }
+    public Map<DimensionName, Map<RangeLimitType, String>> getViewParameterNames() {
+        return viewParameterNames;
+    }
 
+    public void setViewParameterNames(
+            Map<DimensionName, Map<RangeLimitType, String>> viewParameterNames) {
+        this.viewParameterNames = viewParameterNames;
+    }
+    
     public void setViewParameterName(DimensionName dimension, RangeLimitType type,
             String paramName) {
         if (!this.viewParameterNames.containsKey(dimension)) {
@@ -263,6 +271,14 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
         }
     }
 
+    public Map<String, String> getCustomDimensionParameterNames() {
+        return customDimensionParameterNames;
+    }
+
+    public void setCustomDimensionParameterNames(Map<String, String> customDimensionParameterNames) {
+        this.customDimensionParameterNames = customDimensionParameterNames;
+    }
+    
     public void setCustomDimensionViewParameterName(String customDimensionName,
             String viewParameterName) {
         this.customDimensionParameterNames.put(customDimensionName, viewParameterName);
@@ -276,13 +292,17 @@ public class DimensionSQLViewParamRequestTransformer extends GetMapCallbackAdapt
         }
     }
 
-    public boolean isOverrideExistingViewParamsEnabled() {
+    public boolean isOverrideExistingViewParams() {
         return overrideExistingViewParams;
     }
 
-    public void setOverrideExistingViewParamsEnabled(boolean overrideExistingViewParams) {
+    public void setOverrideExistingViewParams(boolean overrideExistingViewParams) {
         this.overrideExistingViewParams = overrideExistingViewParams;
     }
+
+   
+
+  
 
     @Override
     public GetMapRequest initRequest(GetMapRequest request) {
